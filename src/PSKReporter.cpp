@@ -15,6 +15,7 @@
 #define PSK_REPORTER_HOSTNAME "report.pskreporter.info"
 #define PSK_REPORTER_ADDRESS "74.116.41.13"
 #define PSK_REPORTER_PORT 4739
+#define PSK_REPORTER_TEST_PORT 14739
 
 // RX record:
 /* For receiver callsign, receiver locator, decoding software use */
@@ -27,7 +28,7 @@ static const uint8_t rxFormatHeader[] = {
     0x00, 0x00};
 
 // TX record:
-/* For sender callsign, frequency, SNR (1 byte), mode, information source (1 byte), flow start sS=econds use */
+/* For sender callsign, frequency, SNR (1 byte), mode, information source (1 byte), flow start seconds use */
 
 static const uint8_t txFormatHeader[] = {
     0x00, 0x02, 0x00, 0x34, 0x99, 0x93, 0x00, 0x06,
@@ -103,7 +104,7 @@ void ReceivedRecord::encode(uint8_t *buf) const
 }
 
 PskReporter::PskReporter(const uint8_t *encodedBuf) : currentSequenceNumber(0),
-                                                      randomIdentifier(static_cast<unsigned int>(time(0)) ^ static_cast<unsigned int>(getpid()))
+                                                      randomIdentifier(static_cast<uint32_t>(time(0)) ^ static_cast<uint32_t>(getpid()))
 {
     encodedBuf = readLengthPrefixedString(encodedBuf, reporterCallsign);
     encodedBuf = readLengthPrefixedString(encodedBuf, reporterGridSquare);
@@ -149,14 +150,14 @@ bool PskReporter::send()
     uint8_t *p = (uint8_t *)packet.get();
     *p++ = 0x00;
     *p++ = 0x0A;
-    *((unsigned short *)p) = htons(dgSize);
-    p += sizeof(unsigned short);
-    *((unsigned int *)p) = htonl(time(0));
-    p += sizeof(unsigned int);
-    *((unsigned int *)p) = htonl(currentSequenceNumber++);
-    p += sizeof(unsigned int);
-    *((unsigned int *)p) = htonl(randomIdentifier);
-    p += sizeof(unsigned int);
+    *((uint16_t *)p) = htons(dgSize);
+    p += sizeof(uint16_t);
+    *((uint32_t *)p) = htonl(time(0));
+    p += sizeof(uint32_t);
+    *((uint32_t *)p) = htonl(currentSequenceNumber++);
+    p += sizeof(uint32_t);
+    *((uint32_t *)p) = htonl(randomIdentifier);
+    p += sizeof(uint32_t);
 
     memcpy(p, rxFormatHeader, sizeof(rxFormatHeader));
     p += sizeof(rxFormatHeader);
@@ -173,7 +174,7 @@ bool PskReporter::send()
     recordList.clear();
 
     wifiUdp.beginPacket(PSK_REPORTER_HOSTNAME, PSK_REPORTER_PORT);
-    //  wifiUdp.beginPacket(PSK_REPORTER_ADDRESS, PSK_REPORTER_PORT);
+    //  wifiUdp.beginPacket(PSK_REPORTER_HOSTNAME, PSK_REPORTER_TEST_PORT);
     size_t written = wifiUdp.write((const uint8_t *)packet.c_str(), dgSize);
     wifiUdp.endPacket();
     return written == dgSize;

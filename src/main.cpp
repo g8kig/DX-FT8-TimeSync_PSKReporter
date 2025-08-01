@@ -1,4 +1,3 @@
-
 #include <WiFi.h>
 #include <WiFiManager.h>
 #include <NTPClient.h>
@@ -17,6 +16,8 @@ static const uint8_t RTC_I2C_ADDRESS = 0x2A;
 static TaskHandle_t networkTaskHandle = 0;
 static RTCTime rtcTime = {0};
 static PskReporter *pskReporter = NULL;
+static ESP32Time rtc(0);
+static bool timeIsValid = false;
 
 // forward reference
 static void NetworkTask(void *parameter);
@@ -54,6 +55,7 @@ static void receiveEvent(int length)
             break;
 
         case OP_SEND_REQUEST:
+            addWorkQueueItem(OP_SEND_REQUEST, NULL, 0);
             break;
         }
         while (Wire.available())
@@ -77,7 +79,7 @@ void processSenderRecord(const uint8_t *buffer)
 {
     if (pskReporter != NULL)
         delete pskReporter;
-    pskReporter = new PskReporter(buffer);
+    pskReporter = new PskReporter(buffer, false);
 }
 
 void processReceiverRecord(const uint8_t *buffer)
@@ -89,11 +91,7 @@ void processReceiverRecord(const uint8_t *buffer)
 void processSendRequest()
 {
     if (pskReporter != NULL)
-    {
         pskReporter->send();
-        delete pskReporter;
-    }
-    pskReporter = NULL;
 }
 
 // Arduino-style API
@@ -118,6 +116,37 @@ void setup()
 
 void loop()
 {
+    static unsigned long halfSecondCall = 0;
+    static unsigned long fiveMinuteCall = 0;
+    unsigned long now = millis();
+
+    if (now - halfSecondCall >= 500) // 1/2 second
+    {
+        halfSecondCall = now;
+        if (timeIsValid)
+        {
+            Serial.println(rtc.getDateTime(true));
+
+            rtcTime.seconds = rtc.getSecond();
+            rtcTime.minutes = rtc.getMinute();
+            rtcTime.hours = rtc.getHour(true);
+            rtcTime.dayOfWeek = rtc.getDayofWeek();
+            rtcTime.day = rtc.getDay();
+            rtcTime.month = rtc.getMonth() + 1;
+            rtcTime.year = rtc.getYear() - 2000;
+        }
+        else
+        {
+            memset(&rtcTime, 0, sizeof(rtcTime))
+        }
+    }
+
+    if (now - fiveMinuteCall >= 300000) // 5 minutes
+    {
+        fiveMinuteCall = now;
+        addWorkQueueItem(OP_SEND_REQUEST, NULL, 0);
+    }
+
     processWorkQueue();
 }
 
@@ -209,21 +238,9 @@ static void NetworkTask(void *parameter)
             if (timeClient.update())
             {
                 char buffer[256];
-                ESP32Time rtc(0);
+                timeIsValid = false;
                 rtc.setTime(timeClient.getEpochTime());
-
-                Serial.println(rtc.getDateTime(true));
-
-                RTCTime rtcTime;
-                rtcTime.seconds = rtc.getSecond();
-                rtcTime.minutes = rtc.getMinute();
-                rtcTime.hours = rtc.getHour(true);
-                rtcTime.dayOfWeek = rtc.getDayofWeek();
-                rtcTime.day = rtc.getDay();
-                rtcTime.month = rtc.getMonth() + 1;
-                rtcTime.year = rtc.getYear() - 2000;
-
-                addWorkQueueItem(OP_TIME_REQUEST, (const uint8_t *)&rtcTime, sizeof(rtcTime));
+                timeIsValid = true;
             }
             timeClient.end();
         }

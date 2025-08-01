@@ -14,15 +14,17 @@
 #include "PSKReporter.h"
 
 static const uint8_t RTC_I2C_ADDRESS = 0x2A;
-static const uint8_t BOOT_PIN = 9;
-static TaskHandle_t networkTaskHandle = 0;
+static TaskHandle_t timeTaskHandle = 0;
+static TaskHandle_t wifiTaskHandle = 0;
 static RTCTime rtcTime = {0};
 static PskReporter *pskReporter = NULL;
 static ESP32Time rtc(0);
-static bool timeIsValid = false;
+static volatile bool timeIsValid = false;
 
-// forward reference
-static void NetworkTask(void *parameter);
+// forward references
+static void TimeTask(void *parameter);
+static void WiFiTask(void *parameter);
+static void WiFiProcessing();
 
 // I2C slave API
 static void receiveEvent(int length)
@@ -71,7 +73,7 @@ static void requestEvent()
     Wire.write((const uint8_t *)&rtcTime, sizeof(rtcTime));
 }
 
-// Processing functions - all called on the main threads
+// Processing functions - all called on the main thread
 void processTimeRequest(const RTCTime *pRtcTime)
 {
     memcpy(&rtcTime, pRtcTime, sizeof(rtcTime));
@@ -124,7 +126,9 @@ void setup()
     readMacAddress();
     initialiseWorkQueue();
 
-    xTaskCreate(NetworkTask, "NetworkTask", 16384, NULL, 1, &networkTaskHandle);
+    WiFiProcessing();
+    xTaskCreate(WiFiTask, "WiFiTask", 16384, NULL, 1, &wifiTaskHandle);
+    xTaskCreate(TimeTask, "TimeTask", 16384, NULL, 1, &timeTaskHandle);
 
     Wire.begin(RTC_I2C_ADDRESS);
     Wire.onReceive(receiveEvent);
@@ -137,15 +141,11 @@ void loop()
     static unsigned long fiveMinuteCall = 0;
     unsigned long now = millis();
 
-    pinMode(BOOT_PIN, INPUT);
-
     if (now - halfSecondCall >= 500) // 1/2 second
     {
         halfSecondCall = now;
         if (timeIsValid)
         {
-            Serial.println(rtc.getDateTime(true));
-
             rtcTime.seconds = rtc.getSecond();
             rtcTime.minutes = rtc.getMinute();
             rtcTime.hours = rtc.getHour(true);
@@ -160,7 +160,7 @@ void loop()
         }
     }
 
-    if (now - fiveMinuteCall >= 300000) // 5 minutes
+    if (now - fiveMinuteCall >= 5 * 60 * 1000) // 5 minutes
     {
         fiveMinuteCall = now;
         addWorkQueueItem(OP_SEND_REQUEST, NULL, 0);
@@ -169,105 +169,119 @@ void loop()
     processWorkQueue();
 }
 
-// Network thread
-static void NetworkTask(void *parameter)
+static void WiFiProcessing()
+{
+    int n = WiFi.scanNetworks();
+    if (n == 0)
+    {
+        Serial.println("no networks found");
+    }
+    else
+    {
+        Serial.print(n);
+        Serial.println(" networks found");
+        Serial.println("Nr | SSID                             | RSSI | CH | Encryption");
+        for (int i = 0; i < n; ++i)
+        {
+            Serial.printf("%2d", i + 1);
+            Serial.print(" | ");
+            Serial.printf("%-32.32s", WiFi.SSID(i).c_str());
+            Serial.print(" | ");
+            Serial.printf("%4d", WiFi.RSSI(i));
+            Serial.print(" | ");
+            Serial.printf("%2d", WiFi.channel(i));
+            Serial.print(" | ");
+            switch (WiFi.encryptionType(i))
+            {
+            case WIFI_AUTH_OPEN:
+                Serial.print("open");
+                break;
+            case WIFI_AUTH_WEP:
+                Serial.print("WEP");
+                break;
+            case WIFI_AUTH_WPA_PSK:
+                Serial.print("WPA");
+                break;
+            case WIFI_AUTH_WPA2_PSK:
+                Serial.print("WPA2");
+                break;
+            case WIFI_AUTH_WPA_WPA2_PSK:
+                Serial.print("WPA+WPA2");
+                break;
+            case WIFI_AUTH_WPA2_ENTERPRISE:
+                Serial.print("WPA2-EAP");
+                break;
+            case WIFI_AUTH_WPA3_PSK:
+                Serial.print("WPA3");
+                break;
+            case WIFI_AUTH_WPA2_WPA3_PSK:
+                Serial.print("WPA2+WPA3");
+                break;
+            case WIFI_AUTH_WAPI_PSK:
+                Serial.print("WAPI");
+                break;
+            default:
+                Serial.print("unknown");
+            }
+            Serial.println();
+            delay(10);
+        }
+    }
+
+    Serial.println();
+    WiFi.scanDelete();
+}
+
+static void TimeTask(void *parameter)
 {
     for (;;)
     {
-        int n = WiFi.scanNetworks();
-        if (n == 0)
+        if (WiFi.status() == WL_CONNECTED)
         {
-            Serial.println("no networks found");
-            delay(1000);
-        }
-        else
-        {
-            Serial.print(n);
-            Serial.println(" networks found");
-            Serial.println("Nr | SSID                             | RSSI | CH | Encryption");
-            for (int i = 0; i < n; ++i)
-            {
-                Serial.printf("%2d", i + 1);
-                Serial.print(" | ");
-                Serial.printf("%-32.32s", WiFi.SSID(i).c_str());
-                Serial.print(" | ");
-                Serial.printf("%4d", WiFi.RSSI(i));
-                Serial.print(" | ");
-                Serial.printf("%2d", WiFi.channel(i));
-                Serial.print(" | ");
-                switch (WiFi.encryptionType(i))
-                {
-                case WIFI_AUTH_OPEN:
-                    Serial.print("open");
-                    break;
-                case WIFI_AUTH_WEP:
-                    Serial.print("WEP");
-                    break;
-                case WIFI_AUTH_WPA_PSK:
-                    Serial.print("WPA");
-                    break;
-                case WIFI_AUTH_WPA2_PSK:
-                    Serial.print("WPA2");
-                    break;
-                case WIFI_AUTH_WPA_WPA2_PSK:
-                    Serial.print("WPA+WPA2");
-                    break;
-                case WIFI_AUTH_WPA2_ENTERPRISE:
-                    Serial.print("WPA2-EAP");
-                    break;
-                case WIFI_AUTH_WPA3_PSK:
-                    Serial.print("WPA3");
-                    break;
-                case WIFI_AUTH_WPA2_WPA3_PSK:
-                    Serial.print("WPA2+WPA3");
-                    break;
-                case WIFI_AUTH_WAPI_PSK:
-                    Serial.print("WAPI");
-                    break;
-                default:
-                    Serial.print("unknown");
-                }
-                Serial.println();
-                delay(10);
-            }
-        }
-
-        Serial.println();
-
-        WiFi.scanDelete();
-        delay(100);
-
-        WiFiManager mgr;
-        if (digitalRead(BOOT_PIN) == HIGH)
-        {
-            mgr.resetSettings();
-        }
-
-        bool res = mgr.autoConnect("DX_FT8_Xceiver");
-        if (!res)
-        {
-            mgr.resetSettings();
-            Serial.println("Failed to connect");
-            delay(1000);
-        }
-        else
-        {
-            Serial.println("WiFi connected");
-            Serial.print("IP address: ");
-            Serial.println(WiFi.localIP());
-
             WiFiUDP ntpUDP;
             NTPClient timeClient(ntpUDP);
             timeClient.begin();
             if (timeClient.update())
             {
-                char buffer[256];
                 timeIsValid = false;
                 rtc.setTime(timeClient.getEpochTime());
                 timeIsValid = true;
+                Serial.print("Time updated: ");
+                Serial.println(rtc.getDateTime(true));
             }
             timeClient.end();
+            delay(30000);
         }
+        else
+        {
+            delay(500);
+        }
+    }
+    vTaskDelete(NULL);
+}
+
+static void WiFiTask(void *parameter)
+{
+    for (;;)
+    {
+        if (WiFi.status() != WL_CONNECTED)
+        {
+            WiFiManager mgr;
+            bool res = mgr.autoConnect("DX_FT8_Xceiver");
+            if (!res)
+            {
+                mgr.resetSettings();
+                Serial.println("Failed to connect");
+                delay(1000);
+            }
+            else
+            {
+                Serial.println("WiFi connected");
+                Serial.print("IP address: ");
+                Serial.println(WiFi.localIP());
+            }
+        }
+        delay(30000);
     }
     vTaskDelete(NULL);
 }

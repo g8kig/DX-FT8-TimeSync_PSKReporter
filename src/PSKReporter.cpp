@@ -1,12 +1,16 @@
-#include <WiFi.h>
 
-#include <string>
-#include <vector>
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
-#include <unistd.h>
 #include <time.h>
+
+#include <vector>
+
+#ifndef _MSC_VER 
+#include <unistd.h>
+#endif
+
+#include <WiFi.h>
 
 #include "SafeString.h"
 #include "PSKReporter.h"
@@ -16,7 +20,9 @@
 #define PSK_REPORTER_ADDRESS "74.116.41.13"
 #define PSK_REPORTER_PORT 4739
 #define PSK_REPORTER_TEST_PORT 14739
-#define PSK_MAX_RECORDS 40
+#define PSK_MAX_RECORDS 40      // must be less than the max datagram size
+#define MAX_BUFFER_SIZE 1471   // must be less than the max datagram size
+
 
 // RX record:
 /* For receiver callsign, receiver locator, decoding software use */
@@ -68,7 +74,7 @@ ReceivedRecord::ReceivedRecord(const SafeString &callsign, uint32_t frequency, u
       snr(snr),
       mode("FT8"),
       infoSource(1),
-      flowTimeSeconds(time(0))
+      flowTimeSeconds((uint32_t)time(0))
 {
 }
 
@@ -82,10 +88,10 @@ size_t ReceivedRecord::recordSize() const
            sizeof(uint32_t);
 }
 
-void ReceivedRecord::encode(uint8_t *buf) const
+size_t ReceivedRecord::encode(uint8_t *bufIn) const
 {
     // Callsign
-    buf = writeLengthPrefixedString(buf, callsign);
+    uint8_t* buf = writeLengthPrefixedString(bufIn, callsign);
 
     // Frequency (network byte order)
     *((uint32_t *)buf) = htonl(frequency);
@@ -102,6 +108,8 @@ void ReceivedRecord::encode(uint8_t *buf) const
 
     // Flow start time (network byte order)
     *((uint32_t *)buf) = htonl(flowTimeSeconds);
+    buf += sizeof(uint32_t);
+    return buf - bufIn;
 }
 
 PskReporter::PskReporter(const uint8_t *encodedBuf, uint32_t randomIdentifierIn, bool testModeIn) : currentSequenceNumber(0),
@@ -151,27 +159,17 @@ bool PskReporter::send()
 {
     WiFiUDP wifiUdp;
 
-    size_t txDataSize = getTxDataSize();
-    size_t rxDataSize = getRxDataSize();
-    size_t dgSize = sizeof(uint8_t) + sizeof(uint8_t) +
-                    sizeof(uint16_t) +
-                    sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint32_t) +
-                    sizeof(rxFormatHeader) +
-                    (txDataSize > 0 ? sizeof(txFormatHeader) : 0) +
-                    rxDataSize +
-                    txDataSize;
-
-    SafeString packet(dgSize);
+    SafeString packet(MAX_BUFFER_SIZE);
     if (packet.c_str() == NULL)
         return false; // Memory allocation failed
 
     // Encode packet header and fields
-    uint8_t *p = (uint8_t *)packet.get();
+    uint8_t* ptrStart = (uint8_t*)packet.get();
+    uint8_t *p = ptrStart;
     *p++ = 0x00;
     *p++ = 0x0A;
-    *((uint16_t *)p) = htons(dgSize);
     p += sizeof(uint16_t);
-    *((uint32_t *)p) = htonl(time(0));
+    *((uint32_t *)p) = htonl((uint32_t)time(0));
     p += sizeof(uint32_t);
     *((uint32_t *)p) = htonl(currentSequenceNumber++);
     p += sizeof(uint32_t);
@@ -181,15 +179,16 @@ bool PskReporter::send()
     memcpy(p, rxFormatHeader, sizeof(rxFormatHeader));
     p += sizeof(rxFormatHeader);
 
-    if (txDataSize > 0)
+    if (!recordList.empty())
     {
         memcpy(p, txFormatHeader, sizeof(txFormatHeader));
         p += sizeof(txFormatHeader);
     }
 
-    encodeReporterRecord(p);
-    p += rxDataSize;
-    encodeReceivedRecords(p);
+    size_t size = encodeReporterRecord(p);
+    p += size;
+    size = encodeReceivedRecords(p);
+    p += size;
     recordList.clear();
 
     if (testMode)
@@ -201,63 +200,63 @@ bool PskReporter::send()
         wifiUdp.beginPacket(PSK_REPORTER_HOSTNAME, PSK_REPORTER_PORT);
     }
 
-    size_t written = wifiUdp.write((const uint8_t *)packet.c_str(), dgSize);
+    size = p - ptrStart;
+    p = ptrStart + 2;
+    *((uint16_t*)p) = htons((uint16_t)size);
+
+    size_t written = wifiUdp.write((const uint8_t *)packet.c_str(), size);
     wifiUdp.endPacket();
-    return written == dgSize;
+    wifiUdp.stop();
+    return written;
 }
 
 inline size_t pad4(size_t size)
 {
-    constexpr size_t align = 4;
+    const size_t align = 4;
     return (size % align) ? (size + (align - (size % align))) : size;
 }
 
-size_t PskReporter::getRxDataSize()
+size_t PskReporter::encodeReporterRecord(uint8_t *bufStart)
 {
-    size_t size = sizeof(uint32_t) +
-                  (sizeof(uint8_t) + reporterCallsign.length()) +
-                  (sizeof(uint8_t) + reporterGridSquare.length()) +
-                  (sizeof(uint8_t) + decodingSoftware.length());
-    return pad4(size);
-}
-
-size_t PskReporter::getTxDataSize()
-{
-    if (recordList.empty())
-        return 0;
-
-    size_t size = sizeof(uint32_t);
-    for (auto &item : recordList)
-        size += item.recordSize();
-    return pad4(size);
-}
-
-void PskReporter::encodeReporterRecord(uint8_t *buf)
-{
+    uint8_t* buf = bufStart;
     *buf++ = 0x99;
     *buf++ = 0x92;
-    *((uint16_t *)buf) = htons(getRxDataSize());
     buf += sizeof(uint16_t);
 
     buf = writeLengthPrefixedString(buf, reporterCallsign);
     buf = writeLengthPrefixedString(buf, reporterGridSquare);
     buf = writeLengthPrefixedString(buf, decodingSoftware);
+
+    size_t size = buf - bufStart;
+    size = pad4(size);
+
+    buf = bufStart + 2;
+    * ((uint16_t*)buf) = htons((uint16_t)size);
+    return size;
 }
 
-void PskReporter::encodeReceivedRecords(uint8_t *buf)
+size_t PskReporter::encodeReceivedRecords(uint8_t *bufStart)
 {
+    uint8_t* buf = bufStart;
     if (recordList.empty())
-        return;
+        return 0; 
 
     *buf++ = 0x99;
     *buf++ = 0x93;
-
-    *((uint16_t *)buf) = htons(getTxDataSize());
     buf += sizeof(uint16_t);
+
+    size_t size = 4;
 
     for (auto &rec : recordList)
     {
-        rec.encode(buf);
-        buf += rec.recordSize();
+        size_t bufSize = rec.encode(buf);
+        size += bufSize;
+        buf += bufSize;
     }
+
+    size = pad4(size);
+
+    buf = bufStart + 2;
+    *((uint16_t*)buf) = htons((uint16_t)size);
+    return size;
 }

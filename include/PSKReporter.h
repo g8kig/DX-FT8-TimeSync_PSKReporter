@@ -1,3 +1,4 @@
+
 #pragma once
 
 struct ReceivedRecord
@@ -17,7 +18,7 @@ struct ReceivedRecord
     ReceivedRecord &operator=(const ReceivedRecord &other) = delete;
 
     size_t recordSize() const;
-    void encode(uint8_t *buf) const;
+    size_t encode(uint8_t *buf) const;
 };
 
 class PskReporter
@@ -41,9 +42,7 @@ private:
     SafeString decodingSoftware;
     std::vector<ReceivedRecord> recordList;
 
-    size_t getRxDataSize();
-    size_t getTxDataSize();
-    void encodeReporterRecord(uint8_t *buf);
-    void encodeReceivedRecords(uint8_t *buf);
+    size_t encodeReporterRecord(uint8_t *buf);
+    size_t encodeReceivedRecords(uint8_t *buf);
     bool alreadyLogged(const SafeString &callsign) const;
 };

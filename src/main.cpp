@@ -120,7 +120,7 @@ void setup()
     WiFi.disconnect();
 
     Serial.println("WifiTimeSync started");
-    readMacAddress
+    readMacAddress();
     initialiseWorkQueue();
 
     xTaskCreate(NetworkTask, "NetworkTask", 16384, NULL, 1, &networkTaskHandle);
@@ -153,7 +153,7 @@ void loop()
         }
         else
         {
-            memset(&rtcTime, 0, sizeof(rtcTime))
+            memset(&rtcTime, 0, sizeof(rtcTime));
         }
     }
 

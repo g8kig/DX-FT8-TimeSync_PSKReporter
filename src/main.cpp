@@ -14,6 +14,7 @@
 #include "PSKReporter.h"
 
 static const uint8_t RTC_I2C_ADDRESS = 0x2A;
+static const uint8_t BOOT_PIN = 9;
 static TaskHandle_t networkTaskHandle = 0;
 static RTCTime rtcTime = {0};
 static PskReporter *pskReporter = NULL;
@@ -136,6 +137,8 @@ void loop()
     static unsigned long fiveMinuteCall = 0;
     unsigned long now = millis();
 
+    pinMode(BOOT_PIN, INPUT);
+
     if (now - halfSecondCall >= 500) // 1/2 second
     {
         halfSecondCall = now;
@@ -235,7 +238,12 @@ static void NetworkTask(void *parameter)
         delay(100);
 
         WiFiManager mgr;
-        bool res = mgr.autoConnect("DX_FT8_Xceiver", "");
+        if (digitalRead(BOOT_PIN) == HIGH)
+        {
+            mgr.resetSettings();
+        }
+
+        bool res = mgr.autoConnect("DX_FT8_Xceiver");
         if (!res)
         {
             mgr.resetSettings();

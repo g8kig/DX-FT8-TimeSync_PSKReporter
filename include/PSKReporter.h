@@ -23,7 +23,7 @@ struct ReceivedRecord
 class PskReporter
 {
 public:
-    PskReporter(const uint8_t *encodedBuf);
+    PskReporter(const uint8_t *encodedBuf, bool testMode = false);
     virtual ~PskReporter();
 
     void addReceivedRecord(const uint8_t *encodedBuf);
@@ -34,6 +34,7 @@ public:
 private:
     uint32_t currentSequenceNumber;
     uint32_t randomIdentifier;
+    bool testMode;
 
     SafeString reporterCallsign;
     SafeString reporterGridSquare;

@@ -103,8 +103,9 @@ void ReceivedRecord::encode(uint8_t *buf) const
     *((uint32_t *)buf) = htonl(flowTimeSeconds);
 }
 
-PskReporter::PskReporter(const uint8_t *encodedBuf) : currentSequenceNumber(0),
-                                                      randomIdentifier(static_cast<uint32_t>(time(0)) ^ static_cast<uint32_t>(getpid()))
+PskReporter::PskReporter(const uint8_t *encodedBuf, bool testModeIn) : currentSequenceNumber(0),
+                                                                       testMode(testModeIn),
+                                                                       randomIdentifier(static_cast<uint32_t>(time(0)) ^ static_cast<uint32_t>(getpid()))
 {
     encodedBuf = readLengthPrefixedString(encodedBuf, reporterCallsign);
     encodedBuf = readLengthPrefixedString(encodedBuf, reporterGridSquare);
@@ -173,8 +174,15 @@ bool PskReporter::send()
     encodeReceivedRecords(p);
     recordList.clear();
 
-    wifiUdp.beginPacket(PSK_REPORTER_HOSTNAME, PSK_REPORTER_PORT);
-    //  wifiUdp.beginPacket(PSK_REPORTER_HOSTNAME, PSK_REPORTER_TEST_PORT);
+    if (testMode)
+    {
+        wifiUdp.beginPacket(PSK_REPORTER_HOSTNAME, PSK_REPORTER_TEST_PORT);
+    }
+    else
+    {
+        wifiUdp.beginPacket(PSK_REPORTER_HOSTNAME, PSK_REPORTER_PORT);
+    }
+
     size_t written = wifiUdp.write((const uint8_t *)packet.c_str(), dgSize);
     wifiUdp.endPacket();
     return written == dgSize;

@@ -143,7 +143,7 @@ const char &SafeString::operator[](int index) const
     {
         return EmptyChar;
     }
-    
+
     return pData->data[index];
 }
 

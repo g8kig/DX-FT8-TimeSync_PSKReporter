@@ -23,7 +23,7 @@ struct ReceivedRecord
 class PskReporter
 {
 public:
-    PskReporter(const uint8_t *encodedBuf, bool isTestMode);
+    PskReporter(const uint8_t *encodedBuf);
     virtual ~PskReporter();
 
     void addReceivedRecord(const uint8_t *encodedBuf);
@@ -34,15 +34,14 @@ public:
 private:
     uint32_t currentSequenceNumber;
     uint32_t randomIdentifier;
-    bool.testMode;
 
     SafeString reporterCallsign;
     SafeString reporterGridSquare;
     SafeString decodingSoftware;
-    std::queue<ReceivedRecord> recordList;
+    std::vector<ReceivedRecord> recordList;
 
     size_t getRxDataSize();
-    size_t getTxDataSize(size_t remainingSize);
-    uint8_t *encodeReporterRecord(uint8_t *buf);
-    void encodeReceivedRecords(uint8_t *buf, int remainingSize);
+    size_t getTxDataSize();
+    void encodeReporterRecord(uint8_t *buf);
+    void encodeReceivedRecords(uint8_t *buf);
 };

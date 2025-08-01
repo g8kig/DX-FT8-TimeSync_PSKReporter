@@ -37,7 +37,7 @@ void addWorkQueueItem(I2COperation operation, const uint8_t *buffer, int bufferS
     if (index >= 0)
     {
         Serial.printf("addWorkQueueItem(): queued %d with op. %d\n", index, operation);
-        WorkItem *workItem = workItems + index; 
+        WorkItem *workItem = workItems + index;
         workItem->operation = operation;
         if (buffer != NULL && bufferSize > 0)
         {
@@ -63,20 +63,20 @@ void processWorkQueue()
         xSemaphoreTake(workMutex, portMAX_DELAY);
         WorkItem *workItem = workItems + index;
         I2COperation operation = workItem->operation;
-        switch(operation)
+        switch (operation)
         {
-        	case OP_TIME_REQUEST:            
-                processTimeRequest((const RTCTime*) workItem->buffer);
-                break;
-        	case OP_SENDER_RECORD:
-                processSenderRecord(workItem->buffer);
-                break;
-        	case OP_RECEIVER_RECORD:
-                processReceiverRecord(workItem->buffer);
-                break;
-        	case OP_SEND_REQUEST:
-                processSendRequest();
-                break;
+        case OP_TIME_REQUEST:
+            processTimeRequest((const RTCTime *)workItem->buffer);
+            break;
+        case OP_SENDER_RECORD:
+            processSenderRecord(workItem->buffer);
+            break;
+        case OP_RECEIVER_RECORD:
+            processReceiverRecord(workItem->buffer);
+            break;
+        case OP_SEND_REQUEST:
+            processSendRequest();
+            break;
         }
         workItem->state = ITEM_FREE;
         xSemaphoreGive(workMutex);

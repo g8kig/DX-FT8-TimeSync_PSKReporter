@@ -48,12 +48,12 @@ private:
         StringData();
         StringData(const char *s, size_t len);
         virtual ~StringData();
-        
+
         StringData &operator=(const StringData &other) = delete;
     };
 
     StringData *pData;
-    
+
     static char EmptyChar;
 
     void detach(); // Helper for copy-on-write

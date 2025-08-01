@@ -104,9 +104,9 @@ void ReceivedRecord::encode(uint8_t *buf) const
     *((uint32_t *)buf) = htonl(flowTimeSeconds);
 }
 
-PskReporter::PskReporter(const uint8_t *encodedBuf, bool testModeIn) : currentSequenceNumber(0),
-                                                                       testMode(testModeIn),
-                                                                       randomIdentifier(static_cast<uint32_t>(time(0)) ^ static_cast<uint32_t>(getpid()))
+PskReporter::PskReporter(const uint8_t *encodedBuf, uint32_t randomIdentifierIn, bool testModeIn) : currentSequenceNumber(0),
+                                                                                                    testMode(testModeIn),
+                                                                                                    randomIdentifier(randomIdentifierIn)
 {
     encodedBuf = readLengthPrefixedString(encodedBuf, reporterCallsign);
     encodedBuf = readLengthPrefixedString(encodedBuf, reporterGridSquare);

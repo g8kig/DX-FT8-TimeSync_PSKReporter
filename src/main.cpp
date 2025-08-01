@@ -20,6 +20,7 @@ static RTCTime rtcTime = {0};
 static PskReporter *pskReporter = NULL;
 static ESP32Time rtc(0);
 static volatile bool timeIsValid = false;
+static uint32_t uniqueAddress = 0;
 
 // forward references
 static void TimeTask(void *parameter);
@@ -83,7 +84,7 @@ void processSenderRecord(const uint8_t *buffer)
 {
     if (pskReporter != NULL)
         delete pskReporter;
-    pskReporter = new PskReporter(buffer, false);
+    pskReporter = new PskReporter(buffer, uniqueAddress, false);
 }
 
 void processReceiverRecord(const uint8_t *buffer)
@@ -98,15 +99,30 @@ void processSendRequest()
         pskReporter->send();
 }
 
+static uint32_t crc32(uint8_t *message, size_t messageSize)
+{
+    uint32_t crc = 0xFFFFFFFF;
+    for (size_t idx = 0; idx < messageSize; ++idx)
+    {
+        crc ^= message[idx];
+        for (int j = 7; j >= 0; j--)
+        {
+            uint32_t mask = -(crc & 1);
+            crc = (crc >> 1) ^ (0xEDB88320 & mask);
+        }
+    }
+    return ~crc;
+}
+
 static void readMacAddress()
 {
     uint8_t baseMac[6];
-    esp_err_t ret = esp_wifi_get_mac(WIFI_IF_STA, baseMac);
-    if (ret == ESP_OK)
+    if (esp_wifi_get_mac(WIFI_IF_STA, baseMac) == ESP_OK)
     {
         Serial.printf("%02x:%02x:%02x:%02x:%02x:%02x\n",
                       baseMac[0], baseMac[1], baseMac[2],
                       baseMac[3], baseMac[4], baseMac[5]);
+        uniqueAddress = crc32(baseMac, sizeof(baseMac));
     }
     else
     {
@@ -250,7 +266,7 @@ static void TimeTask(void *parameter)
                 Serial.println(rtc.getDateTime(true));
             }
             timeClient.end();
-            delay(30000);
+            delay(120000);
         }
         else
         {

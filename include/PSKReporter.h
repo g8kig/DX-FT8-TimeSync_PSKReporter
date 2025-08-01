@@ -45,4 +45,5 @@ private:
     size_t getTxDataSize();
     void encodeReporterRecord(uint8_t *buf);
     void encodeReceivedRecords(uint8_t *buf);
+    bool alreadyLogged(const SafeString &callsign) const;
 };

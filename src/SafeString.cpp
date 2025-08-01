@@ -193,3 +193,9 @@ bool SafeString::Format(const char *fmt, ...)
     va_end(args);
     return true;
 }
+
+bool SafeString::operator==(const SafeString &other) const
+{
+    return pData->length == other.pData->length &&
+           memcmp(pData->data, other.pData->data, pData->length) == 0;
+}

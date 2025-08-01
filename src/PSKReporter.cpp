@@ -16,6 +16,7 @@
 #define PSK_REPORTER_ADDRESS "74.116.41.13"
 #define PSK_REPORTER_PORT 4739
 #define PSK_REPORTER_TEST_PORT 14739
+#define PSK_MAX_RECORDS 40
 
 // RX record:
 /* For receiver callsign, receiver locator, decoding software use */
@@ -117,6 +118,20 @@ PskReporter::~PskReporter()
     recordList.clear();
 }
 
+bool PskReporter::alreadyLogged(const SafeString &callsign) const
+{
+    bool result = false;
+    for (auto &item : recordList)
+    {
+        if (item.callsign == callsign)
+        {
+            result = true;
+            break;
+        }
+    }
+    return result;
+}
+
 void PskReporter::addReceivedRecord(const uint8_t *encodedBuf)
 {
     SafeString callsign;
@@ -126,7 +141,10 @@ void PskReporter::addReceivedRecord(const uint8_t *encodedBuf)
     encodedBuf += sizeof(uint32_t);
 
     uint8_t snr = *encodedBuf++;
-    recordList.push_back(ReceivedRecord(callsign, frequency, snr));
+    if (recordList.size() < PSK_MAX_RECORDS && !alreadyLogged(callsign))
+    {
+        recordList.push_back(ReceivedRecord(callsign, frequency, snr));
+    }
 }
 
 bool PskReporter::send()

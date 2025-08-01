@@ -18,6 +18,8 @@ public:
     // Assignment operator
     SafeString &operator=(const SafeString &other);
 
+    bool operator==(const SafeString &other) const;
+
     // Character access
     char &operator[](int index);
     const char &operator[](int index) const;

@@ -42,7 +42,7 @@ private:
     SafeString decodingSoftware;
     std::vector<ReceivedRecord> recordList;
 
-    size_t encodeReporterRecord(uint8_t *buf);
+    size_t encodeReporterRecord(uint8_t *buf) const;
     size_t encodeReceivedRecords(uint8_t *buf);
     bool alreadyLogged(const SafeString &callsign) const;
 };

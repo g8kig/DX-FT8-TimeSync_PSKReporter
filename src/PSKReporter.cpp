@@ -16,12 +16,12 @@
 #include "PSKReporter.h"
 
 // Live server
-#define PSK_REPORTER_HOSTNAME "report.pskreporter.info"
-#define PSK_REPORTER_ADDRESS "74.116.41.13"
-#define PSK_REPORTER_PORT 4739
-#define PSK_REPORTER_TEST_PORT 14739
-#define PSK_MAX_RECORDS 40      // must be less than the max datagram size
-#define MAX_BUFFER_SIZE 1471   // must be less than the max datagram size
+constexpr auto PSK_REPORTER_HOSTNAME = "report.pskreporter.info";
+constexpr auto PSK_REPORTER_ADDRESS = "74.116.41.13";
+constexpr auto PSK_REPORTER_PORT = 4739;
+constexpr auto PSK_REPORTER_TEST_PORT = 14739;
+constexpr auto PSK_MAX_RECORDS = 40;      // must be less than the max datagram size;
+constexpr auto MAX_BUFFER_SIZE = 1471;   // must be less than the max datagram size;
 
 
 // RX record:
@@ -210,17 +210,17 @@ bool PskReporter::send()
     return written;
 }
 
-inline size_t pad4(size_t size)
+inline static size_t pad4(size_t size)
 {
-    const size_t align = 4;
-    return (size % align) ? (size + (align - (size % align))) : size;
+    return (size + 3) & 0xfffffffcU;
 }
 
-size_t PskReporter::encodeReporterRecord(uint8_t *bufStart)
+size_t PskReporter::encodeReporterRecord(uint8_t *bufStart) const
 {
     uint8_t* buf = bufStart;
     *buf++ = 0x99;
     *buf++ = 0x92;
+    // room for the size
     buf += sizeof(uint16_t);
 
     buf = writeLengthPrefixedString(buf, reporterCallsign);
@@ -243,6 +243,7 @@ size_t PskReporter::encodeReceivedRecords(uint8_t *bufStart)
 
     *buf++ = 0x99;
     *buf++ = 0x93;
+    // room for the size
     buf += sizeof(uint16_t);
 
     size_t size = 4;

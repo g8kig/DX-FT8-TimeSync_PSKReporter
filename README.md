@@ -61,13 +61,14 @@ Select the network provided by the ESP32 board. It's SSID is “DX_FT8_Xceiver�
 
 After a few moments a web portal should be displayed. If not, open your browser and navigate to ‘http://192.168.4.1'.
 
+![Screenshot_2025-08-06-13-36-22-066_com android htmlviewer](https://github.com/user-attachments/assets/dee76b64-a107-43e7-b22d-f5664b44b7da)
 
 Click 'Configure WiFi'.
 
 ![Screenshot_2025-08-06-13-38-05-141_com android htmlviewer](https://github.com/user-attachments/assets/5e0d5556-6417-48cb-805f-cfd88e30ce3f)
 
-Select the SSID of the WiFi network you want to use and enter the credentials.
-Save the Settings. 
+Select the SSID of the WiFi network you want to use and enter the credentials. Save the Settings. 
+
 If successful the ESP32 board is ready to go.
 
 ![Screenshot_2025-08-06-13-38-12-406_com android htmlviewer](https://github.com/user-attachments/assets/5bbf68af-478e-49eb-9d59-a16f3e968975)

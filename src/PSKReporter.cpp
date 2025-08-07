@@ -82,16 +82,6 @@ ReceivedRecord::ReceivedRecord(const SafeString &callsign, uint32_t frequency, u
 {
 }
 
-size_t ReceivedRecord::recordSize() const
-{
-    return (sizeof(uint8_t) + callsign.length()) +
-           sizeof(uint32_t) +
-           sizeof(uint8_t) +
-           (sizeof(uint8_t) + mode.length()) +
-           sizeof(uint8_t) +
-           sizeof(uint32_t);
-}
-
 size_t ReceivedRecord::encode(uint8_t *bufIn) const
 {
     // Callsign
@@ -130,9 +120,6 @@ bool PskReporter::createSenderRecord(const uint8_t *encodedBuf)
     encodedBuf = readLengthPrefixedString(encodedBuf, reporterCallsign);
     encodedBuf = readLengthPrefixedString(encodedBuf, reporterGridSquare);
 
-    Serial.printf("createSenderRecord(): %s %s\n", 
-        reporterCallsign.c_str(), 
-        reporterGridSquare.c_str());
     return true;
 }
 
@@ -142,8 +129,7 @@ bool PskReporter::createSenderSoftwareRecord(const uint8_t *encodedBuf)
         return false;
 
     encodedBuf = readLengthPrefixedString(encodedBuf, decodingSoftware);
-    Serial.printf("createSenderSoftwareRecord(): %s\n", 
-        decodingSoftware.c_str());
+
     return true;
 }
 

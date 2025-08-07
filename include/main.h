@@ -18,8 +18,6 @@ struct RTCTime
     uint8_t year;
 };
 
-extern bool syncTime;
-
 void processTimeRequest(const RTCTime *rtcTime);
 void processSenderRecord(const uint8_t *buffer);
 void processSenderSoftwareRecord(const uint8_t *buffer);

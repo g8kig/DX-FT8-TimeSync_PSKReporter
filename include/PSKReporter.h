@@ -14,7 +14,7 @@ struct ReceivedRecord
     uint8_t snr;
     SafeString mode;
     uint8_t infoSource;
-    int flowTimeSeconds;
+    uint32_t flowTimeSeconds;
 
     ReceivedRecord();
     ReceivedRecord(const SafeString &callsign,
@@ -23,7 +23,6 @@ struct ReceivedRecord
 
     ReceivedRecord &operator=(const ReceivedRecord &other) = delete;
 
-    size_t recordSize() const;
     size_t encode(uint8_t *buf) const;
 };
 

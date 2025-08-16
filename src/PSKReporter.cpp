@@ -20,6 +20,7 @@
 
 #include "SafeString.h"
 #include "PSKReporter.h"
+#include "main.h"
 
 // Live server
 constexpr auto PSK_REPORTER_HOSTNAME = "report.pskreporter.info";

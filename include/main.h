@@ -23,3 +23,7 @@ void processSenderRecord(const uint8_t *buffer);
 void processSenderSoftwareRecord(const uint8_t *buffer);
 void processReceiverRecord(const uint8_t *buffer);
 void processSendRequest();
+
+const IPAddress cloudfareDns1 = IPAddress(1, 1, 1, 1);
+const IPAddress cloudfareDns2 = IPAddress(1, 0, 0, 1);
+

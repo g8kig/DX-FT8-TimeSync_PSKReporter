@@ -5,7 +5,7 @@
  * There is a copy of the GPL-Version 3 license in the same folder as this file.
  */
 
- #include <WiFi.h>
+#include <WiFi.h>
 #include <WiFiManager.h>
 #include <NTPClient.h>
 #include <ESP32Time.h>

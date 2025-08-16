@@ -22,8 +22,8 @@
 #include "PSKReporter.h"
 #include "main.h"
 
-// Live server
 constexpr auto PSK_REPORTER_HOSTNAME = "report.pskreporter.info";
+const     auto PSK_REPORTER_IPADDRESS = IPAddress(74,116,41,13);
 constexpr auto PSK_REPORTER_PORT = 4739;
 constexpr auto PSK_REPORTER_TEST_PORT = 14739;
 constexpr auto PSK_MAX_RECORDS = 40;   // must be less than the max datagram size;
@@ -213,15 +213,17 @@ bool PskReporter::send()
         p += size;
         recordList.clear();
 
-        if (testMode)
+        const int port = testMode ? PSK_REPORTER_TEST_PORT : PSK_REPORTER_PORT;
+        if (wifiUdp.beginPacket(PSK_REPORTER_HOSTNAME, port) == 0)
         {
-            wifiUdp.beginPacket(PSK_REPORTER_HOSTNAME, PSK_REPORTER_TEST_PORT);
+            Serial.println("Failed to connect to PSKReporter server by hostname");
+            if (wifiUdp.beginPacket(PSK_REPORTER_IPADDRESS, port) == 0)
+            {
+                Serial.println("Failed to connect to PSKReporter server by IP address");
+                return false;
+            }
         }
-        else
-        {
-            wifiUdp.beginPacket(PSK_REPORTER_HOSTNAME, PSK_REPORTER_PORT);
-        }
-
+ 
         size = p - ptrStart;
         p = ptrStart + 2;
         *((uint16_t *)p) = htons((uint16_t)size);
@@ -230,7 +232,7 @@ bool PskReporter::send()
         wifiUdp.endPacket();
         wifiUdp.stop();
     }
-    return written;
+    return written > 0;
 }
 
 inline static size_t pad4(size_t size)

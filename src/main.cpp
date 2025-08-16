@@ -159,7 +159,7 @@ void processSendRequest()
     getPskReporter().send();
 }
 
-#ifdef TESTIING
+#ifdef TESTING
 static void startTestTask()
 {
     if (testTaskRunning)
